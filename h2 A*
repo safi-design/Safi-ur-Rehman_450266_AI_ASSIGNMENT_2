@@ -1,0 +1,171 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_set>
+#include <stack>
+
+using namespace std;
+
+class EightPuzzleSolver {
+private:
+    struct Node {
+        vector<vector<int>> state;
+        int cost;
+        int heuristic; // h2: Manhattan Distance
+        Node* parent;   // Keep track of the parent node
+
+        // Compare nodes based on the total cost (cost + heuristic)
+        bool operator<(const Node& other) const {
+            return (cost + heuristic) > (other.cost + other.heuristic);
+        }
+    };
+
+public:
+    EightPuzzleSolver(const vector<vector<int>>& initial, const vector<vector<int>>& goal)
+        : initial_(initial), goal_(goal) {}
+
+    void solve() {
+        Node startNode = {initial_, 0, calculateManhattanDistance(initial_), nullptr};
+        Node goalNode = {goal_, 0, 0, nullptr};
+
+        priority_queue<Node> pq;
+        unordered_set<vector<vector<int>>, HashFunction> visited;
+
+        pq.push(startNode);
+
+        while (!pq.empty()) {
+            Node current = pq.top();
+            pq.pop();
+
+            if (isPuzzleEqual(current.state, goalNode.state)) {
+                cout << "Goal reached! Total cost: " << current.cost << endl;
+                printSolutionPath(current);
+                return;
+            }
+
+            visited.insert(current.state);
+
+            vector<Node> neighbors = getPossibleMoves(current);
+            for (const Node& neighbor : neighbors) {
+                if (visited.find(neighbor.state) == visited.end()) {
+                    pq.push(neighbor);
+                }
+            }
+        }
+
+        cout << "Goal not reachable." << endl;
+    }
+
+private:
+    const vector<vector<int>> initial_;
+    const vector<vector<int>> goal_;
+
+    struct HashFunction {
+        size_t operator()(const vector<vector<int>>& state) const {
+            size_t hash = 0;
+            for (const auto& row : state) {
+                for (int value : row) {
+                    hash ^= value + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+                }
+            }
+            return hash;
+        }
+    };
+
+    int calculateManhattanDistance(const vector<vector<int>>& state) const {
+        int distance = 0;
+        for (int i = 0; i < state.size(); ++i) {
+            for (int j = 0; j < state[i].size(); ++j) {
+                int value = state[i][j];
+                if (value != 0) {
+                    int targetRow = (value - 1) / state.size();
+                    int targetCol = (value - 1) % state.size();
+                    distance += abs(i - targetRow) + abs(j - targetCol);
+                }
+            }
+        }
+        return distance;
+    }
+
+    vector<Node> getPossibleMoves(const Node& current) const {
+        vector<Node> moves;
+        const vector<vector<int>>& state = current.state;
+        int zeroRow, zeroCol;
+
+        for (int i = 0; i < state.size(); ++i) {
+            for (int j = 0; j < state[i].size(); ++j) {
+                if (state[i][j] == 0) {
+                    zeroRow = i;
+                    zeroCol = j;
+                }
+            }
+        }
+
+        const vector<int> dr = {-1, 1, 0, 0};
+        const vector<int> dc = {0, 0, -1, 1};
+
+        for (int i = 0; i < 4; ++i) {
+            int newRow = zeroRow + dr[i];
+            int newCol = zeroCol + dc[i];
+
+            if (newRow >= 0 && newRow < state.size() && newCol >= 0 && newCol < state[0].size()) {
+                vector<vector<int>> newState = state;
+                swap(newState[zeroRow][zeroCol], newState[newRow][newCol]);
+                Node newNode = {newState, current.cost + 1, calculateManhattanDistance(newState), new Node(current)};
+                moves.push_back(newNode);
+            }
+        }
+
+        return moves;
+    }
+
+    bool isPuzzleEqual(const vector<vector<int>>& state1, const vector<vector<int>>& state2) const {
+        return state1 == state2;
+    }
+
+    void printSolutionPath(const Node& goalNode) const {
+        stack<Node> path;
+        const Node* current = &goalNode;
+
+        while (current != nullptr) {
+            path.push(*current);
+            current = current->parent;
+        }
+
+        while (!path.empty()) {
+            const Node& step = path.top();
+            printPuzzle(step.state);
+            path.pop();
+        }
+    }
+
+    void printPuzzle(const vector<vector<int>>& puzzle) const {
+        for (const auto& row : puzzle) {
+            for (int value : row) {
+                cout << value << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+    }
+};
+
+int main() {
+    // Example usage for the 8-puzzle
+    vector<vector<int>> initial = {
+        {7, 2, 4},
+        {5, 0, 6},
+        {8, 3, 1}
+    };
+
+    vector<vector<int>> goal = {
+        {0, 1, 2},
+        {3, 4, 5},
+        {6, 7, 8}
+    };
+
+    EightPuzzleSolver solver(initial, goal);
+    solver.solve();
+
+    return 0;
+}
